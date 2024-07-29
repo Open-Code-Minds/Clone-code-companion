@@ -33,32 +33,37 @@ class OpenRouterModel {
   async stream(callParams) {
     callParams.stream = true;
     log('Calling OpenRouter API:', callParams);
-    const stream = this.client.beta.chat.completions.stream(callParams, {
-      signal: this.chatController.abortController.signal,
-    });
-    let fullContent = '';
-    let toolCalls = [];
-    
-    stream.on('content', (_delta, snapshot) => {
-      fullContent = snapshot;
-      this.streamCallback(snapshot);
-    });
+    try {
+      const stream = this.client.beta.chat.completions.stream(callParams, {
+        signal: this.chatController.abortController.signal,
+      });
+      let fullContent = '';
+      let toolCalls = [];
+      
+      stream.on('content', (_delta, snapshot) => {
+        fullContent = snapshot;
+        this.streamCallback(snapshot);
+      });
 
-    stream.on('tool_call', (toolCall) => {
-      toolCalls.push(toolCall);
-    });
+      stream.on('tool_call', (toolCall) => {
+        toolCalls.push(toolCall);
+      });
 
-    const chatCompletion = await stream.finalChatCompletion();
-    log('Raw response', chatCompletion);
+      const chatCompletion = await stream.finalChatCompletion();
+      log('Raw response', chatCompletion);
 
-    return {
-      content: fullContent,
-      tool_calls: this.formattedToolCalls(toolCalls),
-      usage: {
-        input_tokens: getTokenCount(callParams.messages),
-        output_tokens: getTokenCount(chatCompletion.choices[0].message),
-      },
-    };
+      return {
+        content: fullContent,
+        tool_calls: this.formattedToolCalls(toolCalls),
+        usage: {
+          input_tokens: getTokenCount(callParams.messages),
+          output_tokens: getTokenCount(chatCompletion.choices[0].message),
+        },
+      };
+    } catch (error) {
+      console.error('Error in OpenRouter stream:', error);
+      throw error;
+    }
   }
 
 

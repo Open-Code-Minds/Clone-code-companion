@@ -45,6 +45,19 @@ class ChatController {
       output_tokens: 0,
       total_tokens: 0,
     };
+    this.handleGlobalErrors();
+  }
+
+  handleGlobalErrors() {
+    window.addEventListener('error', (event) => {
+      console.error('Uncaught error:', event.error);
+      this.handleError(event.error);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      this.handleError(event.reason);
+    });
   }
 
   loadAllSettings() {
