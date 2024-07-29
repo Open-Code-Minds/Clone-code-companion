@@ -17,20 +17,17 @@ class OpenRouterModel {
     this.streamCallback = streamCallback;
   }
 
-  async call({ messages, model, tool = null, tools = null, temperature = 0.0 }) {
-    let response;
+  async call({ messages, model, tools = null, temperature = 0.0 }) {
     const callParams = {
       model: model || this.model,
       messages,
       temperature,
     };
-    if (tool !== null) {
-      response = await this.toolUse(callParams, tool);
-    } else {
-      callParams.tools = tools ? tools.map((tool) => this.openAiToolFormat(tool)) : undefined;
-      response = await this.stream(callParams);
+    if (tools) {
+      callParams.tools = tools.map((tool) => this.openAiToolFormat(tool));
+      callParams.tool_choice = "auto";
     }
-    return response;
+    return await this.stream(callParams);
   }
 
   async stream(callParams) {
@@ -39,14 +36,24 @@ class OpenRouterModel {
     const stream = this.client.beta.chat.completions.stream(callParams, {
       signal: this.chatController.abortController.signal,
     });
+    let fullContent = '';
+    let toolCalls = [];
+    
     stream.on('content', (_delta, snapshot) => {
+      fullContent = snapshot;
       this.streamCallback(snapshot);
     });
+
+    stream.on('tool_call', (toolCall) => {
+      toolCalls.push(toolCall);
+    });
+
     const chatCompletion = await stream.finalChatCompletion();
     log('Raw response', chatCompletion);
+
     return {
-      content: chatCompletion.choices[0].message.content,
-      tool_calls: this.formattedToolCalls(chatCompletion.choices[0].message.tool_calls),
+      content: fullContent,
+      tool_calls: this.formattedToolCalls(toolCalls),
       usage: {
         input_tokens: getTokenCount(callParams.messages),
         output_tokens: getTokenCount(chatCompletion.choices[0].message),
@@ -54,39 +61,18 @@ class OpenRouterModel {
     };
   }
 
-  async toolUse(callParams, tool) {
-    callParams.tools = [this.openAiToolFormat(tool)];
-    callParams.tool_choice = { type: 'function', function: { name: tool.name } };
-    log('Calling OpenRouter API:', callParams);
-    const chatCompletion = await this.client.chat.completions.create(callParams, {
-      signal: this.chatController.abortController.signal,
-    });
-    log('Raw response', chatCompletion);
-    const { result } = JSON.parse(chatCompletion.choices[0].message.tool_calls[0].function.arguments);
-    return {
-      content: result,
-      usage: {
-        input_tokens: chatCompletion.usage?.prompt_tokens,
-        output_tokens: chatCompletion.usage?.completion_tokens,
-      },
-    };
-  }
 
   formattedToolCalls(toolCalls) {
-    if (!toolCalls) return null;
+    if (!toolCalls || toolCalls.length === 0) return null;
 
-    let parsedToolCalls = [];
-    for (const toolCall of toolCalls) {
-      const functionName = toolCall.function.name;
-      const args = JSON.parse(toolCall.function.arguments);
-      parsedToolCalls.push({
-        function: {
-          name: functionName,
-          arguments: args,
-        },
-      });
-    }
-    return parsedToolCalls;
+    return toolCalls.map(toolCall => ({
+      id: toolCall.id,
+      type: 'function',
+      function: {
+        name: toolCall.function.name,
+        arguments: toolCall.function.arguments
+      }
+    }));
   }
 
   openAiToolFormat(tool) {

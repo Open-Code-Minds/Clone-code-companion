@@ -10,23 +10,26 @@ const { generateDiff } = require('./code_diff');
 
 const toolDefinitions = [
   {
-    name: 'browser',
-    description:
-      'Allows to interact with the browser, Use it to open webpage for a user to see, to refresh the page after making changes or to capture console output or a screenshot of the page',
-    parameters: {
-      type: 'object',
-      properties: {
-        url: {
-          type: 'string',
-          description:
-            'Use full URL, including protocol (e.g., http://, https://). For local files like index.html, use file:// protocol and absolute file path',
+    type: 'function',
+    function: {
+      name: 'browser',
+      description:
+        'Allows to interact with the browser, Use it to open webpage for a user to see, to refresh the page after making changes or to capture console output or a screenshot of the page',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description:
+              'Use full URL, including protocol (e.g., http://, https://). For local files like index.html, use file:// protocol and absolute file path',
+          },
+          include_screenshot: {
+            type: 'boolean',
+            description:
+              'Set to true only if you or the user need a screenshot of the page. Avoid taking a screenshot unless some problem need to be solved',
+          },
         },
-        include_screenshot: {
-          type: 'boolean',
-          description:
-            'Set to true only if you or the user need a screenshot of the page. Avoid taking a screenshot unless some problem need to be solved',
-          default: false,
-        },
+        required: ['url']
       },
     },
     executeFunction: browser,

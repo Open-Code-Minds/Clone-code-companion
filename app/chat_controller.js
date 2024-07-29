@@ -201,6 +201,25 @@ class ChatController {
       const tools = this.chat.chatContextBuilder.taskNeedsPlan ? planningTools() : allEnabledTools();
       apiResponse = await this.model.call({ messages, model: this.settings.selectedModel, tools });
       this.updateUsage(apiResponse.usage);
+
+      if (apiResponse.tool_calls) {
+        for (const toolCall of apiResponse.tool_calls) {
+          const toolResult = await this.executeToolCall(toolCall);
+          messages.push({
+            role: 'assistant',
+            content: null,
+            tool_calls: [toolCall]
+          });
+          messages.push({
+            role: 'tool',
+            content: JSON.stringify(toolResult),
+            name: toolCall.function.name,
+            tool_call_id: toolCall.id
+          });
+        }
+        apiResponse = await this.model.call({ messages, model: this.settings.selectedModel });
+        this.updateUsage(apiResponse.usage);
+      }
     } catch (error) {
       this.handleError(error);
     } finally {
@@ -209,6 +228,15 @@ class ChatController {
     }
 
     await this.agent.runAgent(apiResponse);
+  }
+
+  async executeToolCall(toolCall) {
+    const { name, arguments: args } = toolCall.function;
+    const tool = this.agent.tools.find(t => t.name === name);
+    if (!tool) {
+      throw new Error(`Tool ${name} not found`);
+    }
+    return await tool.executeFunction(JSON.parse(args));
   }
 
   updateUsage(usage) {
