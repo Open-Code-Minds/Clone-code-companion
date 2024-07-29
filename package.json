@@ -1,0 +1,124 @@
+{
+  "name": "CodeCompanion",
+  "version": "6.1.1",
+  "description": "Natural language to code",
+  "copyright": "Copyright © CodeCompanion",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "debug": "cross-env NODE_ENV=development electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "publish": "electron-builder --publish=always",
+    "set-no-cache": "node scripts/setNoCache.js",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "build": {
+    "appId": "codecompanion",
+    "productName": "CodeCompanion",
+    "publish": {
+      "provider": "s3",
+      "bucket": "codecompanion",
+      "region": "us-west-2",
+      "channel": "latest"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "default",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "artifactName": "${productName}.${ext}",
+      "category": "public.app-category.developer-tools",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "publisherName": "Alexander Hedrevich",
+      "verifyUpdateCodeSignature": false,
+      "signAndEditExecutable": true,
+      "artifactName": "${productName}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "artifactName": "${productName}-Installer.${ext}",
+      "uninstallDisplayName": "${productName}"
+    },
+    "dmg": {
+      "artifactName": "${productName}.${ext}",
+      "sign": true
+    },
+    "afterSign": "scripts/notarize.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.3",
+    "@aptabase/electron": "^0.3.1",
+    "@electron/notarize": "^2.3.0",
+    "@langchain/openai": "^0.0.12",
+    "@mozilla/readability": "^0.5.0",
+    "@postlight/parser": "^2.2.3",
+    "@sentry/electron": "^4.7.0",
+    "@sentry/integrations": "^7.59.3",
+    "any-text": "^1.2.0",
+    "autosize": "^6.0.1",
+    "axios": "^1.4.0",
+    "bootstrap": "^5.3.0-alpha3",
+    "bootstrap-icons": "^1.10.5",
+    "crypto-js": "^4.1.1",
+    "diff": "^5.2.0",
+    "diff2html": "^3.4.48",
+    "electron-localshortcut": "^3.2.1",
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.1.7",
+    "file-type": "^16.5.3",
+    "googleapis": "^126.0.1",
+    "graceful-fs": "^4.2.11",
+    "highlight.js": "^11.6.0",
+    "ignore": "^5.2.4",
+    "interactjs": "^1.10.18",
+    "istextorbinary": "^9.5.0",
+    "jimp": "^0.22.12",
+    "js-tiktoken": "^1.0.7",
+    "jsdom": "^24.0.0",
+    "langchain": "^0.1.5",
+    "language-detect": "^1.1.0",
+    "lodash": "^4.17.21",
+    "marked": "^11.1.1",
+    "marked-highlight": "^2.1.0",
+    "node-pty": "^1.0.0",
+    "openai": "^4.20.1",
+    "read-chunk": "^3.2.0",
+    "simple-git": "^3.25.0",
+    "uuid": "^9.0.0",
+    "xterm": "^5.2.1",
+    "xterm-addon-fit": "^0.8.0",
+    "xterm-addon-unicode11": "^0.6.0",
+    "xterm-addon-web-links": "^0.9.0"
+  },
+  "devDependencies": {
+    "aws-sdk": "^2.1415.0",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.3.1",
+    "electron": "^27.3.0",
+    "electron-builder": "^23.6.0",
+    "electron-notarize": "^1.2.2",
+    "node-gyp": "^10.0.1",
+    "prettier": "^3.0.1"
+  }
+}

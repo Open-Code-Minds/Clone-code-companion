@@ -1,0 +1,14 @@
+# Visual Studio Code
+.vscode/
+
+# Electron app
+dist/
+electron/
+
+node_modules/
+npm-debug.log*
+yarn.lock
+
+.DS_Store
+out/
+.env

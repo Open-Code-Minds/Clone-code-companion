@@ -1,0 +1,36 @@
+version: '{build}'
+
+branches:
+  only:
+    - main
+skip_branch_with_pr: true
+
+image:
+  - Previous Visual Studio 2022
+
+platform:
+  - x64
+
+clone_depth: 1
+
+environment:
+  nodejs_version: '20'
+
+init:
+  - git config --global core.autocrlf input
+
+install:
+  - git reset --hard HEAD
+  - set CI=true
+  - pip install setuptools
+  - npm ci
+
+build_script:
+  - npm run publish
+  - npm run set-no-cache
+
+test: off
+
+artifacts:
+  - path: dist/*
+    name: Windows

@@ -1,0 +1,391 @@
+<!doctype html>
+<html data-bs-theme="dark" ondragover="event.preventDefault();" ondragleave="event.preventDefault();"
+  ondrop="handleDrop(event);" class="h-100">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>CodeCompanion.AI</title>
+  <meta http-equiv="Content-Security-Policy"
+    content="img-src 'self' data:; font-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; style-src-elem * 'unsafe-inline'" />
+  <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="node_modules/bootstrap-icons/font/bootstrap-icons.css" />
+  <link rel="stylesheet" href="node_modules/highlight.js/styles/github-dark-dimmed.min.css" />
+  <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
+  <link rel="stylesheet" href="node_modules/diff2html/bundles/css/diff2html.min.css" />
+  <link rel="stylesheet" href="styles/styles.css" />
+  <base target="_blank" />
+</head>
+
+<body class="d-flex flex-column">
+  <header class="py-2 bg-body border-bottom fixed-top">
+    <div class="d-flex justify-content-between align-items-center">
+      <div class="d-flex justify-content-start align-items-center w-50">
+        <button class="btn btn-lnk mx-1" type="button" id="settingsToggle" data-bs-toggle="offcanvas"
+          data-bs-target="#settingsMenu">
+          <i class="bi bi-gear" data-bs-toggle="tooltip" data-bs-title="Settings"></i>
+        </button>
+        <div class="d-flex justify-content-center align-items-center w-100 align-items-center text-nowrap">
+          <label for="selectedModel" class="form-label mx-1 mb-0">Model:</label>
+          <select class="form-select form-select-sm" id="selectedModel"
+            onchange="chatController.saveSetting('selectedModel')" style="width: auto"></select>
+          <div class="form-check form-switch ms-3">
+            <input class="form-check-input" type="checkbox" id="approvalRequired"
+              onchange="chatController.saveSetting('approvalRequired')" />
+            <label class="form-check-label" for="approvalRequired">Require approval</label>
+            <i class="bi bi-question-circle" data-bs-toggle="tooltip" data-bs-placement="right"
+              title="Require approval for actions that make changes, such as writing files or executing commands."></i>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex align-items-center">
+        <span id="footerMessage" class="text-secondary text-truncate small m-2 text-end">App is up to date</span>
+        <button class="btn btn-lnk" type="button" onclick="chatController.chat.history.showModal();">
+          <i class="bi bi-floppy" data-bs-toggle="tooltip" data-bs-title="Save to history (Cmd/Ctrl + S)"></i>
+        </button>
+        <button class="btn btn-lnk" type="button" id="historyToggle" data-bs-toggle="offcanvas"
+          data-bs-target="#historyMenu" onclick="chatController.chat.history.load();">
+          <i class="bi bi-clock-history" data-bs-toggle="tooltip" data-bs-title="Chat history"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container-fluid flex-grow-1 p-0">
+    <div class="row g-0 mt-5">
+      <!-- Left panel -->
+      <div id="leftPanel" class="col overflow-hidden">
+        <div id="chat_history_container" class="px-3 overflow-y-auto overflow-x-hidden mb-5 pb-5" style="height: calc(100vh - 120px);">
+          <div id="projectsCard" class="m-2"></div>
+          <div id="output" class="m-2"></div>
+          <div id="streaming_output" class="m-2"></div>
+          <div id="approval_buttons" class="text-center mb-3" hidden>
+            <button id="reject_button" type="button" class="btn btn-link-secondary mx-2 btn-sm">
+              <i class="bi bi-x-circle"></i> Reject
+            </button>
+            <button id="reflect_button" type="button" class="btn btn-link-secondary mx-2 btn-sm">
+              <i class="bi bi-arrow-clockwise"></i> Improve
+            </button>
+            <button id="approve_button" type="button" class="btn btn-primary mx-2 btn-sm">
+              <i class="bi bi-check-lg"></i> Approve
+            </button>
+          </div>
+          <div id="retry_button" class="my-3 text-center" hidden>
+            <button type="button" class="btn btn-outline-secondary" onclick="chatController.retry()">
+              <i class="bi bi-arrow-repeat"></i>
+              Retry
+            </button>
+          </div>
+          <div id="loadingIndicator" class="mt-3" hidden>
+            <div class="spinner-grow spinner-grow-sm text-secondary ms-2" role="status"></div>
+            <span class="ms-3 text-secondary small" id="loadingMessage"></span>
+          </div>
+        </div>
+
+        <div class="bg-body px-3 fixed-bottom" id="chatInputContainer" style="width: 50%;">
+          <div class="d-flex align-items-end ms-1 bottom-0 bg-body py-3">
+            <button class="btn shadow-none btn-sm text-decoration-none me-1" type="button" id="openFileBtn"
+              onclick="viewController.openFileDialogue()">
+              <i class="bi bi-image bg-body border-0" style="font-size: 1.5rem" data-bs-toggle="tooltip"
+                data-bs-title="Upload an image"></i>
+            </button>
+
+            <div class="d-flex position-relative flex-grow-1">
+              <textarea rows="1"
+                class="form-control form-control-lg bg-body-secondary border-0 shadow-none autosize-textarea flex-grow-1"
+                id="messageInput" placeholder="Provide task details..." autofocus
+                style="padding-right: 50px"></textarea>
+
+              <button class="btn btn-sm d-flex position-absolute bottom-0" type="button" id="clearChat"
+                onclick="chatController.submitMessage()" style="right: 10px; bottom: 10px">
+                <i class="bi bi-send bg-body-secondary border-0" style="font-size: 1.5rem" data-bs-toggle="tooltip"
+                  data-bs-title="Submit"></i>
+              </button>
+            </div>
+
+            <button class="btn btn-lg border-0 d-flex align-items-center" type="button"
+              onclick="chatController.clearChat()" data-bs-toggle="tooltip" data-bs-title="New task (Cmd/Ctrl+N)">
+              <i class="bi bi-pencil-square border-0"></i>
+            </button>
+            <button class="btn btn-lg border-0 d-flex align-items-center" type="button" id="requestStopProcess"
+              data-bs-toggle="tooltip" data-bs-title="Interrupt process (Ctrl + C)"
+              onclick="chatController.requestStopProcess();">
+              <i class="bi bg-body border-0 bi-stop-circle"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resize handle -->
+      <div id="resize_handle" class="col-auto"></div>
+
+      <!-- Right panel -->
+      <div id="rightPanel" class="col px-3 overflow-hidden">
+        <ul class="nav nav-tabs nav-justified mt-3" id="rightPanelTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link text-nowrap active" id="shell-tab" data-bs-toggle="tab" data-bs-target="#shell" type="button"
+              role="tab" aria-controls="shell" aria-selected="true"
+              onclick="chatController.terminalSession.resizeTerminalWindow()">
+              <i class="bi bi-terminal me-2"></i>
+              <span class="px-1">Terminal</span>
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link text-nowrap" id="task-tab" data-bs-toggle="tab" data-bs-target="#task" type="button"
+              role="tab" aria-controls="task" aria-selected="false">
+              <i class="bi bi-list-task me-2"></i>
+              <span class="px-1">Task</span>
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link text-nowrap d-flex align-items-center justify-content-center" id="browser-tab" data-bs-toggle="tab" data-bs-target="#browser" type="button"
+              role="tab" aria-controls="browser" aria-selected="false">
+              <span id="browserIcon" class="d-flex align-items-center"><i class="bi bi-globe me-2"></i></span>
+              <span>Browser</span>
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link text-nowrap d-flex align-items-center justify-content-center" id="git-tab" data-bs-toggle="tab" data-bs-target="#git" type="button"
+              role="tab" aria-controls="git" aria-selected="false"
+              onclick="chatController.agent.projectController.git?.renderUI();"
+              >
+              <span id="gitIcon" class="d-flex align-items-center"><i class="bi bi-git me-2"></i></span>
+              <span>Git</span>
+            </button>
+          </li>
+        </ul>
+        <div class="tab-content border border-top-0 mb-3" id="rightPanelTabContent"
+          style="height: calc(100vh - 120px);">
+          <div class="tab-pane show active fade h-100" id="shell" role="tabpanel" aria-labelledby="shell-tab">
+            <div id="terminal_output" class="h-100"></div>
+          </div>
+          <div class="tab-pane fade p-5" id="task" role="tabpanel" aria-labelledby="task-tab">
+            <h3 id="taskTitle" class="mb-3"></h3>
+            <div id="taskContainer">
+              <div class="text-secondary">Provide task details in the chat input to start a new task</div>
+            </div>
+          </div>
+          <div class="tab-pane fade h-100" id="browser" role="tabpanel" aria-labelledby="browser-tab">
+            <div class="border-bottom d-flex align-items-center p-2">
+              <button class="btn btn-sm btn-link-secondary me-1" onclick="chatController.browser.goBack();"
+                data-bs-toggle="tooltip" data-bs-placement="bottom" title="Back">
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <button class="btn btn-sm btn-link-secondary me-1"
+                onclick="chatController.browser.goForward();" data-bs-toggle="tooltip"
+                data-bs-placement="bottom" title="Forward">
+                <i class="bi bi-chevron-right"></i>
+              </button>
+              <button class="btn btn-sm btn-link-secondary me-1" onclick="chatController.browser.reload();"
+                data-bs-toggle="tooltip" data-bs-placement="bottom" title="Reload">
+                <i class="bi bi-arrow-clockwise"></i>
+              </button>
+              <input type="text" class="form-control form-control-sm border-0" id="urlInput"
+                placeholder="Enter URL, eg. http://localhost:3000/"
+              >
+              <button class="btn btn-sm btn-link-secondary ms-auto"
+                onclick="chatController.browser.handleSreenshot();" data-bs-toggle="tooltip"
+                data-bs-placement="bottom" title="Send screenshot to Chat">
+                <i class="bi bi-image ms-2"></i>
+              </button>
+              <button class="btn btn-sm btn-link-secondary ms-auto"
+                onclick="chatController.browser.openDevTools();" data-bs-toggle="tooltip"
+                data-bs-placement="bottom" title="Dev tools">
+                <span id="browserDevToolsIcon" class="text-nowrap"><i class="bi bi-bug ms-2"></i></span>
+              </button>
+            </div>
+            <webview id="browserWebview" style="width:100%; height:calc(100% - 50px);" src="about:blank"></webview>
+          </div>
+          <div class="tab-pane fade h-100" id="git" role="tabpanel" aria-labelledby="git-tab">
+            <div id="git_output" class="h-100">
+              <div class="d-flex justify-content-center align-items-center h-100">
+                <p class="text-secondary text-center">
+                  Open a project with a Git repository to use Git features.
+                  <br>
+                  Or ask in chat to initialize a new repository.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings side bars and modals -->
+  <div id="settingsMenu" class="offcanvas offcanvas-start" tabindex="-1" style="width: 310px">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Settings</h5>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <label for="apiKey" class="form-label mt-4">OpenAI API Key:</label>
+      <div class="input-group">
+        <input type="text" class="form-control" id="apiKey" placeholder="Your API Key" />
+        <button class="btn btn-outline-secondary" type="button" id="saveApiKey"
+          onclick="chatController.saveSetting('apiKey');">
+          Save
+        </button>
+      </div>
+
+      <label for="anthropicApiKey" class="form-label mt-4">Anthropic API Key:</label>
+      <div class="input-group">
+        <input type="text" class="form-control" id="anthropicApiKey" placeholder="Anthropic API Key" />
+        <button class="btn btn-outline-secondary" type="button" id="saveAnthropicApiKey"
+          onclick="chatController.saveSetting('anthropicApiKey');">
+          Save
+        </button>
+      </div>
+
+      <label for="apiKey" class="form-label mt-4">API Endpoint URL:</label>
+      <div class="input-group">
+        <input type="text" class="form-control" id="baseUrl" placeholder="Optional" />
+        <button class="btn btn-outline-secondary" type="button" id="saveBaseURL"
+          onclick="chatController.saveSetting('baseUrl')">
+          Save
+        </button>
+      </div>
+
+      <label for="maxFilesToEmbed" class="form-label mt-4">Max files to index (Code search):</label>
+      <div class="input-group">
+        <input type="text" class="form-control" id="maxFilesToEmbed" placeholder="For vector embeddings" />
+        <button class="btn btn-outline-secondary" type="button" id="saveMaxFilesToEmbed"
+          onclick="chatController.saveSetting('maxFilesToEmbed');">
+          Save
+        </button>
+      </div>
+
+      <label for="commandToOpenFile" class="form-label mt-4">Command to open a file in IDE:</label>
+      <div class="input-group">
+        <input type="text" class="form-control" id="commandToOpenFile" placeholder="Example: 'code' to open VS Code" />
+        <button class="btn btn-outline-secondary" type="button"
+          onclick="chatController.saveSetting('commandToOpenFile');">
+          Save
+        </button>
+      </div>
+
+      <div>
+        <label for="themeDropdown" class="form-label mt-4">Theme:</label>
+        <select class="form-select w-100" id="theme" onchange="viewController.changeTheme(this.value)"
+          style="width: auto">
+          <option value="dark" selected>Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="form-label mt-4">Feedback:</label>
+        <div>hello@codecompanion.ai</div>
+
+        <div class="d-flex justify-content-start">
+          <a href="https://www.codecompanion.ai/" target="_blank" class="me-3">CodeCompanion.AI</a>
+          <a href="https://www.x.com/codecompanionai" target="_blank" class="me-3">
+            <i class="bi bi-twitter"></i>
+          </a>
+          <a href="https://www.discord.com/invite/qcTqDgqy6R" target="_blank">
+            <i class="bi bi-discord"></i>
+          </a>
+        </div>
+      </div>
+      <div>
+        <label class="form-label mt-4">App Version:</label>
+        <div>
+          <span id="appVersion"></span> (Beta)
+          <a href="https://www.codecompanion.ai/releases" target="_blank">What's new?</a>
+        </div>
+      </div>
+      <div class="mt-3">
+        <a href="https://www.codecompanion.ai/privacy">Privacy Policy</a>
+        |
+        <a href="https://www.codecompanion.ai/terms">Terms</a>
+      </div>
+    </div>
+  </div>
+  <!-- EOF Settings side bar -->
+
+  <!-- History sidepanel -->
+  <div id="historyMenu" class="offcanvas offcanvas-end" tabindex="-1" style="width: 310px">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title">Chat history</h5>
+      <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body" id="chatHistory">Loading...</div>
+  </div>
+  <!-- EOF History -->
+
+  <div class="modal" tabindex="-1" id="addInstructionsModal">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="saveChatForm"
+          onsubmit="event.preventDefault(); chatController.agent.projectController.saveInstructions();">
+          <div class="modal-header">
+            <h5 class="modal-title">Add Custom Instructions</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <textarea class="form-control my-2" id="customInstructions"
+              placeholder="Add instructions on what technologies and frameworks to use, file formatting or any other instructions or project description. Example: Only use Bootstrap for UI."
+              rows="4"></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" id="saveSelectedSchemasButton" class="btn btn-primary"
+              onclick="chatController.agent.projectController.saveInstructions();">
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" tabindex="-1" id="saveChatModal">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form id="saveChatForm" onsubmit="event.preventDefault(); chatController.chat.history.save();">
+          <div class="modal-header">
+            <h5 class="modal-title">Save chat to history</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <input type="text" class="form-control my-2" id="chatTitle" placeholder="Chat title..." />
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" id="saveSelectedSchemasButton" class="btn btn-primary"
+              onclick="chatController.chat.history.save()">
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" tabindex="-1" id="helpMessage">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Tips</h5>
+          <button type="button" class="btn-close" onclick="onboardingController.markAsRead()"
+            aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="helpMessageContent"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" onclick="onboardingController.markAsRead()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <script src="node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="renderer.js"></script>
+  <script>
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipList = [...tooltipTriggerList].map((tooltipTriggerEl) => new bootstrap.Tooltip(tooltipTriggerEl));
+  </script>
+</body>
+
+</html>
