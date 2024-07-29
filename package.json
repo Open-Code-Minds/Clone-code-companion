@@ -115,9 +115,10 @@
     "aws-sdk": "^2.1415.0",
     "cross-env": "^7.0.3",
     "dotenv": "^16.3.1",
-    "electron": "^27.3.0",
+    "electron": "^31.3.0",
     "electron-builder": "^23.6.0",
     "electron-notarize": "^1.2.2",
+    "node-abi": "^3.65.0",
     "node-gyp": "^10.0.1",
     "prettier": "^3.0.1"
   }
